@@ -89,8 +89,8 @@ router.post('/create-checkout-session', async (req, res) => {
     payment_method_types: ['card'],
     line_items: newLineItems,
     mode: 'payment',
-    success_url: 'http://localhost:3000/success',
-    cancel_url: 'http://localhost:3000/cancel',
+    success_url: 'https://www.instagram.com/gauthier.leclair/',
+    cancel_url: 'https://www.instagram.com/gauthier.leclair/',
  });
 
  res.redirect(303, session.url);
@@ -98,12 +98,12 @@ router.post('/create-checkout-session', async (req, res) => {
 
 
 router.get('/success', (req, res) => {
-  res.render('https://www.instagram.com/gauthier.leclair/');
+  res.render('success');
  });
 
 
 router.get('/cancel', (req, res) => {
-  res.render('https://www.instagram.com/gauthier.leclair/');
+  res.render('cancel');
  });
 
  router.get('/', function(req,res,next){
