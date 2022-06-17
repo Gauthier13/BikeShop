@@ -98,12 +98,12 @@ router.post('/create-checkout-session', async (req, res) => {
 
 
 router.get('/success', (req, res) => {
-  res.render('success');
+  res.render('https://www.instagram.com/gauthier.leclair/');
  });
 
 
 router.get('/cancel', (req, res) => {
-  res.render('cancel');
+  res.render('https://www.instagram.com/gauthier.leclair/');
  });
 
  router.get('/', function(req,res,next){
