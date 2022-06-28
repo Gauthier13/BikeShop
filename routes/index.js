@@ -3,13 +3,13 @@ var router = express.Router();
 
 const stripe = require('stripe')('sk_test_51HQ84jAXaqH2oTbzs6WzzYrmyFALxjsUc5LMZ9qUO5U0xbIrLCQ1IlcDw8HszRZZGLQCkmLkPhXX6U85gAbTlps000GwYlnt4c');
 
-var dataBike = [
-  { id: 1, name: "BIK045", url: "/images/bike-1.jpg", price: 679, mea: true, modeLiv: [1, 2] },
-  { id: 2, name: "ZOOK07", url: "/images/bike-2.jpg", price: 999, mea: true, modeLiv: [1, 3] },
-  { id: 3, name: "TITANS", url: "/images/bike-3.jpg", price: 799, mea: false, modeLiv: [1, 2, 3] },
-  { id: 4, name: "CEWO", url: "/images/bike-4.jpg", price: 1300, mea: true, modeLiv: [1, 2, 3] },
-  { id: 5, name: "AMIG039", url: "/images/bike-5.jpg", price: 479, mea: false, modeLiv: [1, 2, 3] },
-  { id: 6, name: "LIK099", url: "/images/bike-6.jpg", price: 869, mea: true, modeLiv: [1, 2, 3] },
+var dataBikeArray = [
+  { id: 1, name: "BIK045", url: "/images/bike-1.jpg", price: 679, mea: true, modeLiv: [1, 2], stock: 0 },
+  { id: 2, name: "ZOOK07", url: "/images/bike-2.jpg", price: 999, mea: true, modeLiv: [1, 3], stock: 10 },
+  { id: 3, name: "TITANS", url: "/images/bike-3.jpg", price: 799, mea: false, modeLiv: [1, 2, 3], stock: 2 },
+  { id: 4, name: "CEWO", url: "/images/bike-4.jpg", price: 1300, mea: true, modeLiv: [1, 2, 3], stock: 2 },
+  { id: 5, name: "AMIG039", url: "/images/bike-5.jpg", price: 479, mea: false, modeLiv: [1, 2, 3], stock: 2 },
+  { id: 6, name: "LIK099", url: "/images/bike-6.jpg", price: 869, mea: true, modeLiv: [1, 2, 3], stock: 2 },
 ];
 
 // Fonction qui calcule les frais de port et le total de la commande
@@ -81,13 +81,27 @@ var getMeaList = (dataBike) => {
   return dataBike;
 }
 
+var getProducts = (products, cardBike) => {
+  for (var i = 0; i < products.length; i++) {
+    var foundProduct = cardBike.find(element => element.id == products[i].id);
+    products[i].stockDispo = products[i].stock;
+    if (foundProduct) {
+      products[i].stockDispo -= foundProduct.quantity;
+    }
+  }
+  return products;
+}
+
 
 router.get('/', function (req, res, next) {
   if (req.session.dataCardBike == undefined) {
     req.session.dataCardBike = [];
   }
 
-  res.render('index', { dataBike: dataBike, mea: getMeaList(dataBike) });
+  var dataBike = getProducts(dataBikeArray, req.session.dataCardBike);
+  var mea = getMeaList(dataBike);
+
+  res.render('index', { dataBike, mea });
 });
 
 router.get('/shop', async function (req, res, next) {
@@ -128,7 +142,7 @@ router.get('/add-shop', async function (req, res, next) {
   }
 
   if (alreadyExist == false) {
-    var selectedProduct = dataBike.find(element => element.id == req.query.id);
+    var selectedProduct = dataBikeArray.find(element => element.id == req.query.id);
     selectedProduct.quantity = 1;
     req.session.dataCardBike.push(selectedProduct);
   }
@@ -164,7 +178,9 @@ router.post('/update-shop', async function (req, res, next) {
   var position = req.body.position;
   var newQuantity = req.body.quantity;
 
-  req.session.dataCardBike[position].quantity = Number(newQuantity);
+  if (newQuantity <= dataBikeArray.find((data) => data.id === req.session.dataCardBike[position].id).stock) {
+    req.session.dataCardBike[position].quantity = newQuantity;
+  }
 
   res.redirect('/shop');
 });
@@ -220,6 +236,6 @@ router.post('/create-checkout-session', async (req, res) => {
 
 router.get('/success', function (req, res, next) {
   res.render('confirm');
-});
+})
 
 module.exports = router;

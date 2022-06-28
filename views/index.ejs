@@ -52,7 +52,7 @@
                             <div class="card-body text-center">
                                 <h5 class="card-title"><%= mea[i].name%></h5>
                                 <%= mea[i].price%>€
-                                <a href="/add-shop?id=<%= mea[i].id%>" class="btn btn-outline-info btn-sm">Buy</a>
+                                <a href="/add-shop?bikeNameFromFront=<%= mea[i].name%>&bikePriceFromFront=<%= mea[i].price%>&bikeImageFromFront=<%= mea[i].url%>" class="btn btn-outline-info btn-sm">Buy</a>
                             </div>
                          
                         </div>
@@ -81,8 +81,19 @@
                             <img src="<%= dataBike[i].url%>" class="card-img-top">
                             <div class="card-body text-center">
                                 <h5 class="card-title"><%= dataBike[i].name%></h5>
+                                <p>Stock disponible : <%=dataBike[i].stockDispo%></p>
                                 <%= dataBike[i].price%>€
-                                <a href="/add-shop?id=<%= dataBike[i].id%>" class="btn btn-outline-info btn-sm">Buy</a>
+                                <% if(dataBike[i].stockDispo === 0){
+                                %>
+                                    Rupture de stock
+                                <%    
+                                } else {
+                                %>
+                                    <a href="/add-shop?id=<%= dataBike[i].id%>" class="btn btn-outline-info btn-sm">Buy</a>
+                                <%    
+                                }
+                                %>
+                                
                             </div>
                         </div>
                     </div>
