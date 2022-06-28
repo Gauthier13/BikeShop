@@ -4,34 +4,73 @@ var router = express.Router();
 const stripe = require('stripe')('sk_test_51HQ84jAXaqH2oTbzs6WzzYrmyFALxjsUc5LMZ9qUO5U0xbIrLCQ1IlcDw8HszRZZGLQCkmLkPhXX6U85gAbTlps000GwYlnt4c');
 
 var dataBike = [
-  { name: "BIK045", url: "/images/bike-1.jpg", price: 679, mea: true },
-  { name: "ZOOK07", url: "/images/bike-2.jpg", price: 999, mea: true },
-  { name: "TITANS", url: "/images/bike-3.jpg", price: 799, mea: false },
-  { name: "CEWO", url: "/images/bike-4.jpg", price: 1300, mea: false },
-  { name: "AMIG039", url: "/images/bike-5.jpg", price: 479, mea: false },
-  { name: "LIK099", url: "/images/bike-6.jpg", price: 869, mea: false },
+  { id: 1, name: "BIK045", url: "/images/bike-1.jpg", price: 679, mea: true, modeLiv: [1, 2] },
+  { id: 2, name: "ZOOK07", url: "/images/bike-2.jpg", price: 999, mea: true, modeLiv: [1, 3] },
+  { id: 3, name: "TITANS", url: "/images/bike-3.jpg", price: 799, mea: false, modeLiv: [1, 2, 3] },
+  { id: 4, name: "CEWO", url: "/images/bike-4.jpg", price: 1300, mea: true, modeLiv: [1, 2, 3] },
+  { id: 5, name: "AMIG039", url: "/images/bike-5.jpg", price: 479, mea: false, modeLiv: [1, 2, 3] },
+  { id: 6, name: "LIK099", url: "/images/bike-6.jpg", price: 869, mea: true, modeLiv: [1, 2, 3] },
 ];
 
 // Fonction qui calcule les frais de port et le total de la commande
-var calculTotalCommande = (dataCardBike) => {
-  var nbProduits = 0;
+var calculTotalCommande = (dataCardBike, modeLivraison) => {
+  if (dataCardBike.length == 0) {
+    return { montantFraisPort: 0, totalCmd: 0 };
+  }
+
   var totalCmd = 0;
+  var montantFraisPort = modeLivraison.montant;
 
   for (var i = 0; i < dataCardBike.length; i++) {
-    nbProduits += dataCardBike[i].quantity;
     totalCmd += dataCardBike[i].quantity * dataCardBike[i].price;
-  }
-  var montantFraisPort = nbProduits * 30;
-
-  if (totalCmd > 4000) {
-    montantFraisPort = 0;
-  } else if (totalCmd > 2000) {
-    montantFraisPort = montantFraisPort / 2;
   }
 
   totalCmd += montantFraisPort;
 
   return { montantFraisPort, totalCmd };
+}
+
+var getModeLivraison = (dataCardBike) => {
+  var nbProduits = 0;
+  var totalCmd = 0;
+
+  var listMLDispoProducts = [];
+
+  for (var i = 0; i < dataCardBike.length; i++) {
+    nbProduits += Number(dataCardBike[i].quantity);
+    totalCmd += dataCardBike[i].quantity * dataCardBike[i].price;
+
+    if (i == 0) {
+      listMLDispoProducts = dataCardBike[i].modeLiv;
+    }
+    listMLDispoProducts = listMLDispoProducts.filter(e => dataCardBike[i].modeLiv.includes(e));
+
+  }
+
+  // Règle frais de port standard
+  var montantFraisPortStandard = nbProduits * 30;
+
+  if (totalCmd > 4000) {
+    montantFraisPortStandard = 0;
+  } else if (totalCmd > 2000) {
+    montantFraisPortStandard = montantFraisPortStandard / 2;
+  }
+
+  // Règle frais de port express
+  var montantFraisPortExpress = montantFraisPortStandard + 100;
+
+  // Règle frais de port Retrait
+  var montantFraisPortRetrait = nbProduits * 20 + 50;
+
+  var listeModeLivraison = [
+    { id: 1, libelle: 'Frais de port standard', montant: montantFraisPortStandard },
+    { id: 2, libelle: 'Frais de port Express', montant: montantFraisPortExpress },
+    { id: 3, libelle: 'Frais de port Retrait', montant: montantFraisPortRetrait },
+  ];
+
+  listeModeLivraison = listeModeLivraison.filter(e => listMLDispoProducts.includes(e.id));
+
+  return listeModeLivraison.sort((a, b) => parseFloat(a.montant) - parseFloat(b.montant));
 }
 
 // Fonction qui récupère les 3 produits à mettre en avant
@@ -53,20 +92,25 @@ router.get('/', function (req, res, next) {
 
 router.get('/shop', async function (req, res, next) {
   if (req.session.dataCardBike == undefined) {
-    req.session.dataCardBike = [];
+    req.session.dataCardBike = []
   }
 
-  var total = calculTotalCommande(req.session.dataCardBike)
+  // Liste des modes de livraison
+  var modeLivraison = getModeLivraison(req.session.dataCardBike)
 
-  // Frais de port
-  var montantFraisPort = total.montantFraisPort
+  // Par defaut, on propose le mode de livraison le moins cher
+  if (req.session.modeLivraison == undefined) {
+    req.session.modeLivraison = modeLivraison[0]
+  }
+
+  req.session.modeLivraison = modeLivraison.find(e => e.id == req.session.modeLivraison.id);
+
+  var total = calculTotalCommande(req.session.dataCardBike, req.session.modeLivraison);
 
   // Total commande
-  var montantCommande = total.totalCmd
+  var montantCommande = total.totalCmd;
 
-  console.log(req.session, montantFraisPort, montantCommande);
-
-  res.render('shop', { dataCardBike: req.session.dataCardBike, montantFraisPort, montantCommande });
+  res.render('shop', { dataCardBike: req.session.dataCardBike, selectedModeLiv: req.session.modeLivraison, modeLivraison, montantCommande });
 });
 
 router.get('/add-shop', async function (req, res, next) {
@@ -77,20 +121,27 @@ router.get('/add-shop', async function (req, res, next) {
   var alreadyExist = false;
 
   for (var i = 0; i < req.session.dataCardBike.length; i++) {
-    if (req.session.dataCardBike[i].name == req.query.bikeNameFromFront) {
+    if (req.session.dataCardBike[i].id == req.query.id) {
       req.session.dataCardBike[i].quantity = req.session.dataCardBike[i].quantity + 1;
       alreadyExist = true;
     }
   }
 
   if (alreadyExist == false) {
-    req.session.dataCardBike.push({
-      name: req.query.bikeNameFromFront,
-      url: req.query.bikeImageFromFront,
-      price: req.query.bikePriceFromFront,
-      quantity: 1
-    });
+    var selectedProduct = dataBike.find(element => element.id == req.query.id);
+    selectedProduct.quantity = 1;
+    req.session.dataCardBike.push(selectedProduct);
   }
+
+  res.redirect('/shop');
+});
+
+router.post('/update-modeliv', async function (req, res, next) {
+  var modeLivraison = getModeLivraison(req.session.dataCardBike);
+
+  var selectedModeLiv = modeLivraison.find(element => element.id == req.body.modeLivraison);
+
+  req.session.modeLivraison = selectedModeLiv;
 
   res.redirect('/shop');
 });
@@ -100,9 +151,9 @@ router.get('/delete-shop', async function (req, res, next) {
     req.session.dataCardBike = [];
   }
 
-  req.session.dataCardBike.splice(req.query.position, 1);
+  req.session.dataCardBike.splice(req.query.position, 1)
 
-  res.redirect('/shop')
+  res.redirect('/shop');
 });
 
 router.post('/update-shop', async function (req, res, next) {
@@ -123,7 +174,7 @@ router.post('/create-checkout-session', async (req, res) => {
     req.session.dataCardBike = [];
   }
 
-  var total = calculTotalCommande(req.session.dataCardBike);
+  var total = calculTotalCommande(req.session.dataCardBike, req.session.modeLivraison);
 
   // Frais de port
   var montantFraisPort = total.montantFraisPort;
