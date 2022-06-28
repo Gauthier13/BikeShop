@@ -106,7 +106,7 @@ router.get('/', function (req, res, next) {
 
 router.get('/shop', async function (req, res, next) {
   if (req.session.dataCardBike == undefined) {
-    req.session.dataCardBike = []
+    req.session.dataCardBike = [];
   }
 
   // Liste des modes de livraison
@@ -121,10 +121,20 @@ router.get('/shop', async function (req, res, next) {
 
   var total = calculTotalCommande(req.session.dataCardBike, req.session.modeLivraison);
 
-  // Total commande
+  // Total commande + promos à afficher
   var montantCommande = total.totalCmd;
+  var promoCmd = [];
 
-  res.render('shop', { dataCardBike: req.session.dataCardBike, selectedModeLiv: req.session.modeLivraison, modeLivraison, montantCommande });
+  // Application de la réduction automatique de 20% pour 2 vélos achetés (du même modèle)
+  for (var i = 0; i < req.session.dataCardBike.length; i++) {
+    if (req.session.dataCardBike[i].quantity > 1) {
+      var reduction = Math.round(req.session.dataCardBike[i].price * 0.2 * 100) / 100;
+      promoCmd.push({ code: '2FOISMIEUX', libelle: '-20% pour 2 vélos achetés', montant: reduction });
+      montantCommande -= reduction;
+    }
+  }
+
+  res.render('shop', { dataCardBike: req.session.dataCardBike, selectedModeLiv: req.session.modeLivraison, modeLivraison, montantCommande, promoCmd });
 });
 
 router.get('/add-shop', async function (req, res, next) {
@@ -192,8 +202,8 @@ router.post('/create-checkout-session', async (req, res) => {
 
   var total = calculTotalCommande(req.session.dataCardBike, req.session.modeLivraison);
 
-  // Frais de port
   var montantFraisPort = total.montantFraisPort;
+  var promoCmd = [];
 
   var stripeItems = [];
 
@@ -208,6 +218,31 @@ router.post('/create-checkout-session', async (req, res) => {
       },
       quantity: req.session.dataCardBike[i].quantity,
     });
+  }
+
+  // Application de la réduction automatique de 20% pour 2 vélos achetés (du même modèle)
+  for (var i = 0; i < req.session.dataCardBike.length; i++) {
+    if (req.session.dataCardBike[i].quantity > 1) {
+      var reduction = Math.round(req.session.dataCardBike[i].price * 0.2 * 100) / 100;
+      promoCmd.push({ code: '2FOISMIEUX', libelle: '-20% pour 2 vélos achetés', montant: reduction });
+    }
+  }
+
+  // On applique les promotions sur les différents produits de la session Stripe
+  for (var i = 0; i < promoCmd.length; i++) {
+    var montantRestant = promoCmd[i].montant;
+
+    for (var j = 0; j < stripeItems.length; j++) {
+      if (montantRestant > 0) {
+        if (stripeItems[j].price_data.unit_amount * stripeItems[j].quantity > (montantRestant * 100 + 1)) {
+          stripeItems[j].price_data.unit_amount = stripeItems[j].price_data.unit_amount - montantRestant * 100 / stripeItems[j].quantity;
+          montantRestant = 0;
+        } else {
+          montantRestant -= (stripeItems[j].price_data.unit_amount / 100 - 1) * stripeItems[j].quantity;
+          stripeItems[j].price_data.unit_amount = 100;
+        }
+      }
+    }
   }
 
   if (montantFraisPort > 0) {

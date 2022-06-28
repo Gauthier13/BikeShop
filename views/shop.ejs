@@ -110,6 +110,17 @@
                             }
                             %>
                         </form>
+                        
+                        <% for(var i=0;i<promoCmd.length;i++){%>
+                            <tr>
+                            <th scope="row"></th>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td class="total-box"><%=promoCmd[i].code%> (<%=promoCmd[i].libelle%>) </td>
+                            <td>-<%=promoCmd[i].montant%>€</td>
+                          </tr>
+                        <%}%>
                           <tr>
                             <th scope="row"></th>
                             <td></td>
