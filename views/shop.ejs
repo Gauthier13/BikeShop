@@ -110,16 +110,27 @@
                             }
                             %>
                         </form>
-                        
-                        <% for(var i=0;i<promoCmd.length;i++){%>
-                            <tr>
+                        <form id="codepromo" action="/add-codepromo" method="POST">
+                          <tr>
                             <th scope="row"></th>
                             <td></td>
                             <td></td>
                             <td></td>
-                            <td class="total-box"><%=promoCmd[i].code%> (<%=promoCmd[i].libelle%>) </td>
-                            <td>-<%=promoCmd[i].montant%>€</td>
+                            <td class="total-box">Code Promo</td>
+                            <td><input type="text" name="codePromo" value=""><button type="submit" class="btn btn-outline-info btn-sm" name="button"><i class="fas fa-sync-alt"></i></button></td>
+                            <td></td>
                           </tr>
+                        </form>
+                        <% for(var i=0;i<promoCmd.length;i++){%>
+                            <tr>
+                                <th scope="row"></th>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                                <td class="total-box"><%=promoCmd[i].code%> (<%=promoCmd[i].libelle%>) </td>
+                                <td>-<%=promoCmd[i].montant%><%= promoCmd[i].type === 'montant' ? '€' : '%' %></td>
+                                <td><% if(promoCmd[i].suppr === true){%><a href="/del-codepromo"><button type="submit" class="btn btn-outline-info btn-sm" name="button"><i class="fas fa-times-circle"></i></button></a><%}%></td>
+                            </tr>
                         <%}%>
                           <tr>
                             <th scope="row"></th>

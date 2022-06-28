@@ -10,7 +10,12 @@ var dataBikeArray = [
   { id: 4, name: "CEWO", url: "/images/bike-4.jpg", price: 1300, mea: true, modeLiv: [1, 2, 3], stock: 2 },
   { id: 5, name: "AMIG039", url: "/images/bike-5.jpg", price: 479, mea: false, modeLiv: [1, 2, 3], stock: 2 },
   { id: 6, name: "LIK099", url: "/images/bike-6.jpg", price: 869, mea: true, modeLiv: [1, 2, 3], stock: 2 },
-];
+]
+
+var codePromoTab = [
+  { id: 1, code: "REDUC30", libelle: '30€ de réduction immédiate', type: "montant", montant: 30 },
+  { id: 1, code: "20POURCENT", libelle: '-20%, cadeau de la maison', type: "pourcent", montant: 20 },
+]
 
 // Fonction qui calcule les frais de port et le total de la commande
 var calculTotalCommande = (dataCardBike, modeLivraison) => {
@@ -96,6 +101,7 @@ var getProducts = (products, cardBike) => {
 router.get('/', function (req, res, next) {
   if (req.session.dataCardBike == undefined) {
     req.session.dataCardBike = [];
+    req.session.promoCmd = [];
   }
 
   var dataBike = getProducts(dataBikeArray, req.session.dataCardBike);
@@ -104,9 +110,10 @@ router.get('/', function (req, res, next) {
   res.render('index', { dataBike, mea });
 });
 
-router.get('/shop', async function (req, res, next) {
+router.get('/shop', function (req, res, next) {
   if (req.session.dataCardBike == undefined) {
     req.session.dataCardBike = [];
+    req.session.promoCmd = [];
   }
 
   // Liste des modes de livraison
@@ -125,11 +132,23 @@ router.get('/shop', async function (req, res, next) {
   var montantCommande = total.totalCmd;
   var promoCmd = [];
 
+  // Application des codes promos
+  for (var i = 0; i < req.session.promoCmd.length; i++) {
+    if (req.session.promoCmd[i].type === 'montant') {
+      var reduction = req.session.promoCmd[i].montant;
+      montantCommande -= reduction;
+    } else {
+      var reduction = Math.round(100 * req.session.promoCmd[i].montant * montantCommande / 100) / 100;
+      montantCommande -= reduction;
+    }
+    promoCmd.push(req.session.promoCmd[i]);
+  }
+
   // Application de la réduction automatique de 20% pour 2 vélos achetés (du même modèle)
   for (var i = 0; i < req.session.dataCardBike.length; i++) {
     if (req.session.dataCardBike[i].quantity > 1) {
       var reduction = Math.round(req.session.dataCardBike[i].price * 0.2 * 100) / 100;
-      promoCmd.push({ code: '2FOISMIEUX', libelle: '-20% pour 2 vélos achetés', montant: reduction });
+      promoCmd.push({ code: '2FOISMIEUX', libelle: '-20% pour 2 vélos achetés', type: 'montant', montant: reduction });
       montantCommande -= reduction;
     }
   }
@@ -137,9 +156,10 @@ router.get('/shop', async function (req, res, next) {
   res.render('shop', { dataCardBike: req.session.dataCardBike, selectedModeLiv: req.session.modeLivraison, modeLivraison, montantCommande, promoCmd });
 });
 
-router.get('/add-shop', async function (req, res, next) {
+router.get('/add-shop', function (req, res, next) {
   if (req.session.dataCardBike == undefined) {
     req.session.dataCardBike = [];
+    req.session.promoCmd = [];
   }
 
   var alreadyExist = false;
@@ -160,7 +180,26 @@ router.get('/add-shop', async function (req, res, next) {
   res.redirect('/shop');
 });
 
-router.post('/update-modeliv', async function (req, res, next) {
+router.post('/add-codepromo', function (req, res, next) {
+  var codePromo = req.body.codePromo;
+
+  // On vérifie que le code promo est dans la liste
+  var codePromoApply = codePromoTab.find(element => element.code == codePromo);
+
+  if (codePromoApply) {
+    req.session.promoCmd.push(codePromoApply);
+  }
+
+  res.redirect('/shop');
+});
+
+router.get('/del-codepromo', function (req, res, next) {
+  req.session.promoCmd = [];
+
+  res.redirect('/shop');
+});
+
+router.post('/update-modeliv', function (req, res, next) {
   var modeLivraison = getModeLivraison(req.session.dataCardBike);
 
   var selectedModeLiv = modeLivraison.find(element => element.id == req.body.modeLivraison);
@@ -170,9 +209,10 @@ router.post('/update-modeliv', async function (req, res, next) {
   res.redirect('/shop');
 });
 
-router.get('/delete-shop', async function (req, res, next) {
+router.get('/delete-shop', function (req, res, next) {
   if (req.session.dataCardBike == undefined) {
     req.session.dataCardBike = [];
+    req.session.promoCmd = [];
   }
 
   req.session.dataCardBike.splice(req.query.position, 1)
@@ -180,9 +220,10 @@ router.get('/delete-shop', async function (req, res, next) {
   res.redirect('/shop');
 });
 
-router.post('/update-shop', async function (req, res, next) {
+router.post('/update-shop', function (req, res, next) {
   if (req.session.dataCardBike == undefined) {
     req.session.dataCardBike = [];
+    req.session.promoCmd = [];
   }
 
   var position = req.body.position;
@@ -198,12 +239,14 @@ router.post('/update-shop', async function (req, res, next) {
 router.post('/create-checkout-session', async (req, res) => {
   if (req.session.dataCardBike == undefined) {
     req.session.dataCardBike = [];
+    req.session.promoCmd = [];
   }
 
   var total = calculTotalCommande(req.session.dataCardBike, req.session.modeLivraison);
 
   var montantFraisPort = total.montantFraisPort;
-  var promoCmd = [];
+  var totalCmd = total.totalCmd;
+  var promoCmd = [...req.session.promoCmd];
 
   var stripeItems = [];
 
@@ -224,13 +267,18 @@ router.post('/create-checkout-session', async (req, res) => {
   for (var i = 0; i < req.session.dataCardBike.length; i++) {
     if (req.session.dataCardBike[i].quantity > 1) {
       var reduction = Math.round(req.session.dataCardBike[i].price * 0.2 * 100) / 100;
-      promoCmd.push({ code: '2FOISMIEUX', libelle: '-20% pour 2 vélos achetés', montant: reduction });
+      promoCmd.push({ code: '2FOISMIEUX', libelle: '-20% pour 2 vélos achetés', type: 'montant', montant: reduction });
     }
   }
 
   // On applique les promotions sur les différents produits de la session Stripe
   for (var i = 0; i < promoCmd.length; i++) {
-    var montantRestant = promoCmd[i].montant;
+    var montantRestant;
+    if (promoCmd[i].type === 'montant') {
+      montantRestant = promoCmd[i].montant;
+    } else {
+      montantRestant = totalCmd * promoCmd[i].montant / 100;
+    }
 
     for (var j = 0; j < stripeItems.length; j++) {
       if (montantRestant > 0) {
