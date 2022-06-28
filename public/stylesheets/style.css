@@ -8,7 +8,7 @@ body{
 /* ---------- Home page -------------- */
 
 .jumbotron {
-    background-image: url('../images/bike-background.jpg');
+    background-image: url('/images/bike-background.jpg');
     background-size: cover;
     background-position: center;
     height: 150px;
@@ -65,7 +65,10 @@ body{
     font-weight: bold;
 }
 
-#empty{
-    color: red;
+.no-article {
+    font-size: italic;
+    color: crimson;
 }
+
+
 

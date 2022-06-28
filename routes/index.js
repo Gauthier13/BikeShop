@@ -1,113 +1,174 @@
 var express = require('express');
-const req = require('express/lib/request');
-const res = require('express/lib/response');
 var router = express.Router();
-const Stripe = require('stripe');
-const stripe = Stripe('sk_test_51LBZkyD7kjmdsZsIHKW7xX8I95KlFOIVCxi1SWyizzWXFrT2OXw2O2WtoILDkOCTbZ6e3Gff4iuGn5pMXHTSJ09d00Jyk37MT5');
 
-var dataBike =[
-  {nom:'BIKO45', image:"images/bike-1.jpg", prix:679},
-  {nom:'ZOOK7', image:"images/bike-2.jpg", prix:999},
-  {nom:'LIKO89', image:"images/bike-3.jpg", prix:799},
-  {nom:'GEWO8', image:"images/bike-4.jpg", prix:1300},
-  {nom:'KIWIT', image:"images/bike-5.jpg", prix:479},
-  {nom:'NASAY', image:"images/bike-6.jpg", prix:869}
+const stripe = require('stripe')('sk_test_51HQ84jAXaqH2oTbzs6WzzYrmyFALxjsUc5LMZ9qUO5U0xbIrLCQ1IlcDw8HszRZZGLQCkmLkPhXX6U85gAbTlps000GwYlnt4c');
+
+var dataBike = [
+  { name: "BIK045", url: "/images/bike-1.jpg", price: 679, mea: true },
+  { name: "ZOOK07", url: "/images/bike-2.jpg", price: 999, mea: true },
+  { name: "TITANS", url: "/images/bike-3.jpg", price: 799, mea: false },
+  { name: "CEWO", url: "/images/bike-4.jpg", price: 1300, mea: false },
+  { name: "AMIG039", url: "/images/bike-5.jpg", price: 479, mea: false },
+  { name: "LIK099", url: "/images/bike-6.jpg", price: 869, mea: false },
 ];
 
-/* GET home page. */
- router.get('/', function(req, res, next) {
-  if(req.session.dataCardBike == undefined){ //si mon panier n'est pas vide
-    req.session.dataCardBike = []; //sinon mon panier est vide
+// Fonction qui calcule les frais de port et le total de la commande
+var calculTotalCommande = (dataCardBike) => {
+  var nbProduits = 0;
+  var totalCmd = 0;
+
+  for (var i = 0; i < dataCardBike.length; i++) {
+    nbProduits += dataCardBike[i].quantity;
+    totalCmd += dataCardBike[i].quantity * dataCardBike[i].price;
   }
-  res.render('index', { dataBike, dataCardBike: req.session.dataCardBike });
- });
+  var montantFraisPort = nbProduits * 30;
+
+  if (totalCmd > 4000) {
+    montantFraisPort = 0;
+  } else if (totalCmd > 2000) {
+    montantFraisPort = montantFraisPort / 2;
+  }
+
+  totalCmd += montantFraisPort;
+
+  return { montantFraisPort, totalCmd };
+}
+
+// Fonction qui récupère les 3 produits à mettre en avant
+var getMeaList = (dataBike) => {
+  dataBike.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+  dataBike = dataBike.filter(a => a.mea === true);
+  dataBike = dataBike.slice(0, 3);
+  return dataBike;
+}
 
 
-//GET shop page
-router.get('/shop', function(req,res,next){
-  console.log(req.query);
-  
-  var bikeIsThere= false;
+router.get('/', function (req, res, next) {
+  if (req.session.dataCardBike == undefined) {
+    req.session.dataCardBike = [];
+  }
 
+  res.render('index', { dataBike: dataBike, mea: getMeaList(dataBike) });
+});
 
-  for(key in req.session.dataCardBike){   
-    if(req.session.dataCardBike[key].nom == req.query.nom){
-      req.session.dataCardBike[key].quantity +=1;
-      bikeIsThere = true;
+router.get('/shop', async function (req, res, next) {
+  if (req.session.dataCardBike == undefined) {
+    req.session.dataCardBike = [];
+  }
+
+  var total = calculTotalCommande(req.session.dataCardBike)
+
+  // Frais de port
+  var montantFraisPort = total.montantFraisPort
+
+  // Total commande
+  var montantCommande = total.totalCmd
+
+  console.log(req.session, montantFraisPort, montantCommande);
+
+  res.render('shop', { dataCardBike: req.session.dataCardBike, montantFraisPort, montantCommande });
+});
+
+router.get('/add-shop', async function (req, res, next) {
+  if (req.session.dataCardBike == undefined) {
+    req.session.dataCardBike = [];
+  }
+
+  var alreadyExist = false;
+
+  for (var i = 0; i < req.session.dataCardBike.length; i++) {
+    if (req.session.dataCardBike[i].name == req.query.bikeNameFromFront) {
+      req.session.dataCardBike[i].quantity = req.session.dataCardBike[i].quantity + 1;
+      alreadyExist = true;
     }
   }
 
-  if(bikeIsThere == false){
-    req.session.dataCardBike.push({nom: req.query.nom, prix: req.query.prix, image: req.query.image, quantity :1});
+  if (alreadyExist == false) {
+    req.session.dataCardBike.push({
+      name: req.query.bikeNameFromFront,
+      url: req.query.bikeImageFromFront,
+      price: req.query.bikePriceFromFront,
+      quantity: 1
+    });
   }
-  
-  //ajouter un vélo aupanier
-  res.render('shop', { dataCardBike : req.session.dataCardBike })
+
+  res.redirect('/shop');
 });
 
+router.get('/delete-shop', async function (req, res, next) {
+  if (req.session.dataCardBike == undefined) {
+    req.session.dataCardBike = [];
+  }
 
-//Delete one item
-router.get('/delete-shop', function(req, res, next) {
-  req.session.dataCardBike.splice(req.query.position, 1); //retirer le vélo en question
+  req.session.dataCardBike.splice(req.query.position, 1);
 
-  res.render('shop', { dataCardBike: req.session.dataCardBike });
+  res.redirect('/shop')
 });
 
-//Modifier les quantités du panier
-router.post('/update-shop', function(req,res,next){
+router.post('/update-shop', async function (req, res, next) {
+  if (req.session.dataCardBike == undefined) {
+    req.session.dataCardBike = [];
+  }
 
   var position = req.body.position;
-  var quantity = req.body.quantity;
-  dataCardBike[position].quantity = quantity;
+  var newQuantity = req.body.quantity;
 
-  res.render('shop',{ dataCardBike } );
-})
+  req.session.dataCardBike[position].quantity = Number(newQuantity);
 
-
-//-------------PAIEMENT----------------------------------------//
-router.post('/create-checkout-session', async (req, res) => {
-
-  var newLineItems = [];
-  for(let i=0; i<req.session.dataCardBike.length; i++){
-    newLineItems.push(
-      {
-        price_data: {
-          currency: 'eur',
-          product_data: {
-            name: req.session.dataCardBike[i].nom,
-          },
-          unit_amount: req.session.dataCardBike[i].prix * 100,
-        },
-        quantity: req.session.dataCardBike[i].quantity,
-      },
-    );
-  };
-
-  console.log("je suis après le for");
-
-  const session = await stripe.checkout.sessions.create({
-    payment_method_types: ['card'],
-    line_items: newLineItems,
-    mode: 'payment',
-    success_url: 'https://www.instagram.com/gauthier.leclair/',
-    cancel_url: 'https://www.instagram.com/gauthier.leclair/',
- });
-
- res.redirect(303, session.url);
+  res.redirect('/shop');
 });
 
+router.post('/create-checkout-session', async (req, res) => {
+  if (req.session.dataCardBike == undefined) {
+    req.session.dataCardBike = [];
+  }
 
-router.get('/success', (req, res) => {
-  res.render('success');
- });
+  var total = calculTotalCommande(req.session.dataCardBike);
 
+  // Frais de port
+  var montantFraisPort = total.montantFraisPort;
 
-router.get('/cancel', (req, res) => {
-  res.render('cancel');
- });
+  var stripeItems = [];
 
- router.get('/', function(req,res,next){
-   res.render('index', { })
- })
+  for (var i = 0; i < req.session.dataCardBike.length; i++) {
+    stripeItems.push({
+      price_data: {
+        currency: 'eur',
+        product_data: {
+          name: req.session.dataCardBike[i].name,
+        },
+        unit_amount: req.session.dataCardBike[i].price * 100,
+      },
+      quantity: req.session.dataCardBike[i].quantity,
+    });
+  }
+
+  if (montantFraisPort > 0) {
+    stripeItems.push({
+      price_data: {
+        currency: 'eur',
+        product_data: {
+          name: 'Frais de port',
+        },
+        unit_amount: montantFraisPort * 100,
+      },
+      quantity: 1,
+    });
+  }
+
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ["card"],
+    line_items: stripeItems,
+    mode: "payment",
+    success_url: "http://localhost:3000/success",
+    cancel_url: "http://localhost:3000/",
+  });
+
+  res.redirect(303, session.url);
+});
+
+router.get('/success', function (req, res, next) {
+  res.render('confirm');
+});
 
 module.exports = router;
