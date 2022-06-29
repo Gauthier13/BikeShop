@@ -36,6 +36,7 @@ var calculTotalCommande = (dataCardBike, modeLivraison) => {
   return { montantFraisPort, totalCmd };
 }
 
+// fonction qui calcule le montant des frais de port en fonction du type de livraison
 var getModeLivraison = (dataCardBike) => {
   var nbProduits = 0;
   var totalCmd = 0;
@@ -97,7 +98,7 @@ var getProducts = (products, cardBike) => {
   return products;
 }
 
-
+// home
 router.get('/', async function (req, res, next) {
   if (req.session.dataCardBike == undefined) {
     req.session.dataCardBike = [];
@@ -158,6 +159,7 @@ router.get('/shop', function (req, res, next) {
   res.render('shop', { dataCardBike: req.session.dataCardBike, selectedModeLiv: req.session.modeLivraison, modeLivraison, montantCommande, promoCmd });
 });
 
+// ajouter un item au panier
 router.get('/add-shop', async function (req, res, next) {
   var alreadyExist = false;
 
@@ -183,6 +185,7 @@ router.get('/add-shop', async function (req, res, next) {
   res.redirect('/shop');
 });
 
+// Ajout du code promo
 router.post('/add-codepromo', function (req, res, next) {
   var codePromo = req.body.codePromo;
 
@@ -196,12 +199,14 @@ router.post('/add-codepromo', function (req, res, next) {
   res.redirect('/shop');
 });
 
+// supprimer le code promo
 router.get('/del-codepromo', function (req, res, next) {
   req.session.promoCmd = [];
 
   res.redirect('/shop');
 });
 
+// mettre à jour le mode de livraison
 router.post('/update-modeliv', function (req, res, next) {
   var modeLivraison = getModeLivraison(req.session.dataCardBike);
 
@@ -212,6 +217,7 @@ router.post('/update-modeliv', function (req, res, next) {
   res.redirect('/shop');
 });
 
+// supprimer un item du panier
 router.get('/delete-shop', async function (req, res, next) {
   var position;
   var quantityToDelete = 0;
@@ -230,6 +236,7 @@ router.get('/delete-shop', async function (req, res, next) {
   res.redirect('/shop');
 });
 
+// mise à jour des items dans le panier
 router.post('/update-shop', async function (req, res, next) {
   var id = req.body.id;
   var newQuantity = Number(req.body.quantity);
@@ -265,6 +272,7 @@ router.post('/update-shop', async function (req, res, next) {
   res.redirect('/shop');
 });
 
+// Paiemnt STRIPE
 router.post('/create-checkout-session', async (req, res) => {
   if (req.session.dataCardBike == undefined) {
     req.session.dataCardBike = [];
@@ -322,6 +330,7 @@ router.post('/create-checkout-session', async (req, res) => {
     }
   }
 
+  // Gestion des frais de port
   if (montantFraisPort > 0) {
     stripeItems.push({
       price_data: {
@@ -347,12 +356,9 @@ router.post('/create-checkout-session', async (req, res) => {
 });
 
 router.get('/success', function (req, res, next) {
-  res.render('confirm');
+  res.render('success');
 });
 
-router.get('/addProduct', function (req, res, next) {
-  res.render('addProduct');
-});
 
 
 // Ajouter un produit à la base de données
