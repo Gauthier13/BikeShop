@@ -1,16 +1,17 @@
 var express = require('express');
 var router = express.Router();
+var articleModel = require('../models/articles');
 
 const stripe = require('stripe')('sk_test_51HQ84jAXaqH2oTbzs6WzzYrmyFALxjsUc5LMZ9qUO5U0xbIrLCQ1IlcDw8HszRZZGLQCkmLkPhXX6U85gAbTlps000GwYlnt4c');
 
-var dataBikeArray = [
-  { id: 1, name: "BIK045", url: "/images/bike-1.jpg", price: 679, mea: true, modeLiv: [1, 2], stock: 0 },
-  { id: 2, name: "ZOOK07", url: "/images/bike-2.jpg", price: 999, mea: true, modeLiv: [1, 3], stock: 10 },
-  { id: 3, name: "TITANS", url: "/images/bike-3.jpg", price: 799, mea: false, modeLiv: [1, 2, 3], stock: 2 },
-  { id: 4, name: "CEWO", url: "/images/bike-4.jpg", price: 1300, mea: true, modeLiv: [1, 2, 3], stock: 2 },
-  { id: 5, name: "AMIG039", url: "/images/bike-5.jpg", price: 479, mea: false, modeLiv: [1, 2, 3], stock: 2 },
-  { id: 6, name: "LIK099", url: "/images/bike-6.jpg", price: 869, mea: true, modeLiv: [1, 2, 3], stock: 2 },
-]
+// var dataBikeArray = [
+//   { id: 1, name: "BIK045", url: "/images/bike-1.jpg", price: 679, mea: true, modeLiv: [1, 2], stock: 0 },
+//   { id: 2, name: "ZOOK07", url: "/images/bike-2.jpg", price: 999, mea: true, modeLiv: [1, 3], stock: 10 },
+//   { id: 3, name: "TITANS", url: "/images/bike-3.jpg", price: 799, mea: false, modeLiv: [1, 2, 3], stock: 2 },
+//   { id: 4, name: "CEWO", url: "/images/bike-4.jpg", price: 1300, mea: true, modeLiv: [1, 2, 3], stock: 2 },
+//   { id: 5, name: "AMIG039", url: "/images/bike-5.jpg", price: 479, mea: false, modeLiv: [1, 2, 3], stock: 2 },
+//   { id: 6, name: "LIK099", url: "/images/bike-6.jpg", price: 869, mea: true, modeLiv: [1, 2, 3], stock: 2 },
+// ]
 
 var codePromoTab = [
   { id: 1, code: "REDUC30", libelle: '30€ de réduction immédiate', type: "montant", montant: 30 },
@@ -49,7 +50,6 @@ var getModeLivraison = (dataCardBike) => {
       listMLDispoProducts = dataCardBike[i].modeLiv;
     }
     listMLDispoProducts = listMLDispoProducts.filter(e => dataCardBike[i].modeLiv.includes(e));
-
   }
 
   // Règle frais de port standard
@@ -88,21 +88,23 @@ var getMeaList = (dataBike) => {
 
 var getProducts = (products, cardBike) => {
   for (var i = 0; i < products.length; i++) {
-    var foundProduct = cardBike.find(element => element.id == products[i].id);
-    products[i].stockDispo = products[i].stock;
-    if (foundProduct) {
-      products[i].stockDispo -= foundProduct.quantity;
+    if (products[i].stockInBasket === undefined) {
+      products[i].stockInBasket = 0
     }
+    products[i].stockDispo = products[i].stock - products[i].stockInBasket
   }
+
   return products;
 }
 
 
-router.get('/', function (req, res, next) {
+router.get('/', async function (req, res, next) {
   if (req.session.dataCardBike == undefined) {
     req.session.dataCardBike = [];
     req.session.promoCmd = [];
   }
+
+  var dataBikeArray = await articleModel.find();
 
   var dataBike = getProducts(dataBikeArray, req.session.dataCardBike);
   var mea = getMeaList(dataBike);
@@ -156,25 +158,26 @@ router.get('/shop', function (req, res, next) {
   res.render('shop', { dataCardBike: req.session.dataCardBike, selectedModeLiv: req.session.modeLivraison, modeLivraison, montantCommande, promoCmd });
 });
 
-router.get('/add-shop', function (req, res, next) {
-  if (req.session.dataCardBike == undefined) {
-    req.session.dataCardBike = [];
-    req.session.promoCmd = [];
-  }
-
+router.get('/add-shop', async function (req, res, next) {
   var alreadyExist = false;
 
-  for (var i = 0; i < req.session.dataCardBike.length; i++) {
-    if (req.session.dataCardBike[i].id == req.query.id) {
-      req.session.dataCardBike[i].quantity = req.session.dataCardBike[i].quantity + 1;
-      alreadyExist = true;
-    }
-  }
+  var article = await articleModel.findById(req.query.id);
 
-  if (alreadyExist == false) {
-    var selectedProduct = dataBikeArray.find(element => element.id == req.query.id);
-    selectedProduct.quantity = 1;
-    req.session.dataCardBike.push(selectedProduct);
+  if (article.stock - article.stockInBasket > 0) {
+    for (var i = 0; i < req.session.dataCardBike.length; i++) {
+      if (req.session.dataCardBike[i].id == req.query.id) {
+        req.session.dataCardBike[i].quantity = req.session.dataCardBike[i].quantity + 1;
+        alreadyExist = true;
+      }
+    }
+
+    if (alreadyExist == false) {
+      var searchProduct = await articleModel.findById(req.query.id);
+      var selectedProduct = { id: searchProduct.id, name: searchProduct.name, url: searchProduct.url, mea: searchProduct.mea, price: searchProduct.price, stock: searchProduct.stock, modeLiv: searchProduct.modeLiv, quantity: 1 };
+      req.session.dataCardBike.push(selectedProduct);
+    }
+
+    await articleModel.updateOne({ _id: req.query.id }, { $inc: { 'stockInBasket': 1 } });
   }
 
   res.redirect('/shop');
@@ -209,28 +212,54 @@ router.post('/update-modeliv', function (req, res, next) {
   res.redirect('/shop');
 });
 
-router.get('/delete-shop', function (req, res, next) {
-  if (req.session.dataCardBike == undefined) {
-    req.session.dataCardBike = [];
-    req.session.promoCmd = [];
+router.get('/delete-shop', async function (req, res, next) {
+  var position;
+  var quantityToDelete = 0;
+
+  for (let i = 0; i < req.session.dataCardBike.length; i++) {
+    if (req.session.dataCardBike[i].id === req.query.id) {
+      position = i;
+      quantityToDelete = -1 * req.session.dataCardBike[i].quantity;
+    }
   }
 
-  req.session.dataCardBike.splice(req.query.position, 1)
+  req.session.dataCardBike.splice(req.query.id, 1);
+
+  await articleModel.updateOne({ _id: req.query.id }, { $inc: { 'stockInBasket': quantityToDelete } });
 
   res.redirect('/shop');
 });
 
-router.post('/update-shop', function (req, res, next) {
-  if (req.session.dataCardBike == undefined) {
-    req.session.dataCardBike = [];
-    req.session.promoCmd = [];
+router.post('/update-shop', async function (req, res, next) {
+  var id = req.body.id;
+  var newQuantity = Number(req.body.quantity);
+  var position;
+  var stockLeft = true;
+  var quantityToUpdate = 0;
+
+  for (let i = 0; i < req.session.dataCardBike.length; i++) {
+    if (req.session.dataCardBike[i].id === id) {
+      position = i;
+      quantityToUpdate = newQuantity - req.session.dataCardBike[i].quantity;
+    }
   }
 
-  var position = req.body.position;
-  var newQuantity = req.body.quantity;
+  if (quantityToUpdate > 0) {
+    var article = await articleModel.findById(id);
+    var stockDispo = article.stock - article.stockInBasket;
+    if (stockDispo < quantityToUpdate) {
 
-  if (newQuantity <= dataBikeArray.find((data) => data.id === req.session.dataCardBike[position].id).stock) {
+      newQuantity = newQuantity - quantityToUpdate + stockDispo;
+      quantityToUpdate = stockDispo;
+      if (quantityToUpdate === 0) {
+        stockLeft = false;
+      }
+    }
+  }
+
+  if (stockLeft === true) {
     req.session.dataCardBike[position].quantity = newQuantity;
+    await articleModel.updateOne({ _id: id }, { $inc: { 'stockInBasket': quantityToUpdate } });
   }
 
   res.redirect('/shop');
@@ -319,6 +348,28 @@ router.post('/create-checkout-session', async (req, res) => {
 
 router.get('/success', function (req, res, next) {
   res.render('confirm');
-})
+});
+
+router.get('/addProduct', function (req, res, next) {
+  res.render('addProduct');
+});
+
+
+// Ajouter un produit à la base de données
+router.post('/addProduct', async function (req, res, next) {
+  var newProduct = new articleModel({
+    name: req.body.name,
+    url: req.body.url,
+    mea: req.body.mea,
+    price: req.body.price,
+    stock: req.body.stock,
+    stockInBasket: 0,
+    modeLiv: req.body.modeliv
+  });
+
+  await newProduct.save();
+
+  res.redirect('/addProduct');
+});
 
 module.exports = router;

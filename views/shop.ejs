@@ -70,14 +70,14 @@
                                     </td>
                                     <td>
                                         <form action="/update-shop" method="POST">
-                                            <input type="hidden" name="position" value="<%=i%>">
+                                            <input type="hidden" name="id" value="<%=dataCardBike[i].id%>">
                                             <input type="text" name="quantity" value="<%= dataCardBike[i].quantity%>">
                                             <button type="submit" class="btn btn-outline-info btn-sm" name="button"><i class="fas fa-sync-alt"></i></button>
                                         </form>
                                     </td>
                                     <td><%= dataCardBike[i].price %>€</td>
                                     <td><%= dataCardBike[i].price * dataCardBike[i].quantity %>€</td>
-                                    <td><a href="/delete-shop?position=<%=i%>"><button class="btn btn-outline-info btn-sm" name="button"><i class="far fa-trash-alt"></i></button></a></td>
+                                    <td><a href="/delete-shop?id=<%=dataCardBike[i].id%>"><button class="btn btn-outline-info btn-sm" name="button"><i class="far fa-trash-alt"></i></button></a></td>
                                 </tr>
                             <%
                             }
@@ -128,7 +128,7 @@
                                 <td></td>
                                 <td></td>
                                 <td class="total-box"><%=promoCmd[i].code%> (<%=promoCmd[i].libelle%>) </td>
-                                <td>-<%=promoCmd[i].montant%><%= promoCmd[i].type === 'montant' ? '€' : '%' %></td>
+                                <td><%=promoCmd[i].montant%>€</td>
                                 <td><% if(promoCmd[i].suppr === true){%><a href="/del-codepromo"><button type="submit" class="btn btn-outline-info btn-sm" name="button"><i class="fas fa-times-circle"></i></button></a><%}%></td>
                             </tr>
                         <%}%>
