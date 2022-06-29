@@ -13,6 +13,7 @@ const stripe = require('stripe')('sk_test_51HQ84jAXaqH2oTbzs6WzzYrmyFALxjsUc5LMZ
 //   { id: 6, name: "LIK099", url: "/images/bike-6.jpg", price: 869, mea: true, modeLiv: [1, 2, 3], stock: 2 },
 // ]
 
+// Créer un code promotionnel 
 var codePromoTab = [
   { id: 1, code: "REDUC30", libelle: '30€ de réduction immédiate', type: "montant", montant: 30 },
   { id: 1, code: "20POURCENT", libelle: '-20%, cadeau de la maison', type: "pourcent", montant: 20 },
@@ -20,7 +21,7 @@ var codePromoTab = [
 
 // Fonction qui calcule les frais de port et le total de la commande
 var calculTotalCommande = (dataCardBike, modeLivraison) => {
-  if (dataCardBike.length == 0) {
+  if (dataCardBike.length == 0) { // panier vide
     return { montantFraisPort: 0, totalCmd: 0 };
   }
 
@@ -28,15 +29,15 @@ var calculTotalCommande = (dataCardBike, modeLivraison) => {
   var montantFraisPort = modeLivraison.montant;
 
   for (var i = 0; i < dataCardBike.length; i++) {
-    totalCmd += dataCardBike[i].quantity * dataCardBike[i].price;
+    totalCmd += dataCardBike[i].quantity * dataCardBike[i].price; 
   }
 
-  totalCmd += montantFraisPort;
+  totalCmd += montantFraisPort; // calcul du montant total de la cmd frais de port compris
 
   return { montantFraisPort, totalCmd };
 }
 
-// fonction qui calcule le montant des frais de port en fonction du type de livraison
+// Fonction qui calcule le montant des frais de port en fonction du type de livraison
 var getModeLivraison = (dataCardBike) => {
   var nbProduits = 0;
   var totalCmd = 0;
@@ -44,11 +45,11 @@ var getModeLivraison = (dataCardBike) => {
   var listMLDispoProducts = [];
 
   for (var i = 0; i < dataCardBike.length; i++) {
-    nbProduits += Number(dataCardBike[i].quantity);
-    totalCmd += dataCardBike[i].quantity * dataCardBike[i].price;
+    nbProduits += Number(dataCardBike[i].quantity); // quantité d'un produit
+    totalCmd += dataCardBike[i].quantity * dataCardBike[i].price; 
 
     if (i == 0) {
-      listMLDispoProducts = dataCardBike[i].modeLiv;
+      listMLDispoProducts = dataCardBike[i].modeLiv; 
     }
     listMLDispoProducts = listMLDispoProducts.filter(e => dataCardBike[i].modeLiv.includes(e));
   }
@@ -74,19 +75,21 @@ var getModeLivraison = (dataCardBike) => {
     { id: 3, libelle: 'Frais de port Retrait', montant: montantFraisPortRetrait },
   ];
 
-  listeModeLivraison = listeModeLivraison.filter(e => listMLDispoProducts.includes(e.id));
+  listeModeLivraison = listeModeLivraison.filter(e => listMLDispoProducts.includes(e.id)); // Liste des modes de livraison
 
   return listeModeLivraison.sort((a, b) => parseFloat(a.montant) - parseFloat(b.montant));
 }
 
-// Fonction qui récupère les 3 produits à mettre en avant
+// Fonction qui récupère les 3 produits à mettre en avant (carrousel)
+// mea = Mettre En Avant, les vélos de la bdd qui ont mea == true seront affichés dans le carrousel 
 var getMeaList = (dataBike) => {
   dataBike.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
-  dataBike = dataBike.filter(a => a.mea === true);
+  dataBike = dataBike.filter(a => a.mea === true); 
   dataBike = dataBike.slice(0, 3);
   return dataBike;
 }
 
+// Met à jour les infos de sotck des vélos 
 var getProducts = (products, cardBike) => {
   for (var i = 0; i < products.length; i++) {
     if (products[i].stockInBasket === undefined) {
@@ -98,21 +101,22 @@ var getProducts = (products, cardBike) => {
   return products;
 }
 
-// home
+// Home
 router.get('/', async function (req, res, next) {
   if (req.session.dataCardBike == undefined) {
     req.session.dataCardBike = [];
     req.session.promoCmd = [];
   }
 
-  var dataBikeArray = await articleModel.find();
+  var dataBikeArray = await articleModel.find(); // Les vélos dans la base de données
 
-  var dataBike = getProducts(dataBikeArray, req.session.dataCardBike);
-  var mea = getMeaList(dataBike);
-
+  var dataBike = getProducts(dataBikeArray, req.session.dataCardBike); 
+  var mea = getMeaList(dataBike); // Données injectées dans le carrousel 
+  console.log("mea :"+mea)
   res.render('index', { dataBike, mea });
 });
 
+// Ajouter un vélo au panier 
 router.get('/shop', function (req, res, next) {
   if (req.session.dataCardBike == undefined) {
     req.session.dataCardBike = [];
@@ -159,7 +163,7 @@ router.get('/shop', function (req, res, next) {
   res.render('shop', { dataCardBike: req.session.dataCardBike, selectedModeLiv: req.session.modeLivraison, modeLivraison, montantCommande, promoCmd });
 });
 
-// ajouter un item au panier
+// ajouter un item au panier depuis le carrousel 
 router.get('/add-shop', async function (req, res, next) {
   var alreadyExist = false;
 
@@ -189,7 +193,7 @@ router.get('/add-shop', async function (req, res, next) {
 router.post('/add-codepromo', function (req, res, next) {
   var codePromo = req.body.codePromo;
 
-  // On vérifie que le code promo est dans la liste
+  // On vérifie que le code promo est dans la liste des codes
   var codePromoApply = codePromoTab.find(element => element.code == codePromo);
 
   if (codePromoApply) {
@@ -361,7 +365,7 @@ router.get('/success', function (req, res, next) {
 
 
 
-// Ajouter un produit à la base de données
+// Ajouter un produit à la base de données depuis la page admin
 router.post('/addProduct', async function (req, res, next) {
   var newProduct = new articleModel({
     name: req.body.name,

@@ -10,4 +10,4 @@ var articlesSchema = mongoose.Schema({
     stockInBasket: Number
 });
 
-module.exports = mongoose.model('Bikes', articlesSchema);
+module.exports = mongoose.model('bikes', articlesSchema);
